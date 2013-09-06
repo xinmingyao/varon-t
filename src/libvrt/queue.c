@@ -55,7 +55,7 @@ min_power_of_2(unsigned int in)
 
 
 struct vrt_queue *
-vrt_queue_new(const char *name, struct vrt_value_type *value_type,
+vrt_queue_new(const char *name, unsigned block_size,
               unsigned int size)
 {
     struct vrt_queue  *q = cork_new(struct vrt_queue);
@@ -63,6 +63,7 @@ vrt_queue_new(const char *name, struct vrt_value_type *value_type,
     q->name = cork_strdup(name);
 
     unsigned int  value_count;
+    unsigned int block = sizeof(struct vrt_block)-1+block_size;
     if (size == 0) {
         value_count = DEFAULT_QUEUE_SIZE;
     } else {
@@ -75,19 +76,15 @@ vrt_queue_new(const char *name, struct vrt_value_type *value_type,
     q->last_consumed_id = DEFAULT_STARTING_VALUE;
     q->last_claimed_id.value = q->last_consumed_id;
     q->cursor.value = q->last_consumed_id;
-    q->value_type = value_type;
 
-    q->values = cork_calloc(value_count, sizeof(struct vrt_value *));
+    q->values = cork_calloc(value_count, block);
+    q->block_size =  block;
+    //memset(q->values,0,value_count*block_size);
     DEBUG("[%s] Created queue with %u values\n", q->name, value_count);
 
     cork_pointer_array_init(&q->producers, (cork_free_f) vrt_producer_free);
     cork_pointer_array_init(&q->consumers, (cork_free_f) vrt_consumer_free);
 
-    unsigned int  i;
-    for (i = 0; i < value_count; i++) {
-        q->values[i] = vrt_value_new(value_type);
-        cork_abort_if_null(q->values[i], "Cannot allocate values");
-    }
 
     return q;
 }
@@ -95,7 +92,6 @@ vrt_queue_new(const char *name, struct vrt_value_type *value_type,
 void
 vrt_queue_free(struct vrt_queue *q)
 {
-    unsigned int  i;
 
     if (q->name != NULL) {
         cork_strfree(q->name);
@@ -105,12 +101,6 @@ vrt_queue_free(struct vrt_queue *q)
     cork_array_done(&q->consumers);
 
     if (q->values != NULL) {
-        for (i = 0; i <= q->value_mask; i++) {
-            if (q->values[i] != NULL) {
-                vrt_value_free(q->value_type, q->values[i]);
-            }
-        }
-
         free(q->values);
     }
 
@@ -368,14 +358,14 @@ vrt_producer_claim_raw(struct vrt_queue *q, struct vrt_producer *p)
 }
 
 int
-vrt_producer_claim(struct vrt_producer *p, struct vrt_value **value)
+vrt_producer_claim(struct vrt_producer *p, struct vrt_block *value)
 {
-    struct vrt_value  *v;
+    struct vrt_block  *v;
     rii_check(vrt_producer_claim_raw(p->queue, p));
     v = vrt_queue_get(p->queue, p->last_produced_id);
     v->id = p->last_produced_id;
     v->special = VRT_VALUE_NONE;
-    *value = v;
+    value = v;
     return 0;
 }
 
@@ -396,7 +386,7 @@ vrt_producer_publish(struct vrt_producer *p)
 int
 vrt_producer_skip(struct vrt_producer *p)
 {
-    struct vrt_value  *v;
+    struct vrt_block  *v;
     v = vrt_queue_get(p->queue, p->last_produced_id);
     v->special = VRT_VALUE_HOLE;
     return vrt_producer_publish(p);
@@ -406,7 +396,7 @@ int
 vrt_producer_flush(struct vrt_producer *p)
 {
     /* Claim a value to fill in a FLUSH control message. */
-    struct vrt_value  *v;
+    struct vrt_block  *v;
     rii_check(vrt_producer_claim_raw(p->queue, p));
     v = vrt_queue_get(p->queue, p->last_produced_id);
     v->special = VRT_VALUE_FLUSH;
@@ -420,7 +410,7 @@ vrt_producer_flush(struct vrt_producer *p)
               p->last_produced_id + 1, p->last_claimed_id);
         for (i = p->last_produced_id + 1;
              vrt_mod_le(i, p->last_claimed_id); i++) {
-            struct vrt_value  *v = vrt_queue_get(p->queue, i);
+            struct vrt_block  *v = vrt_queue_get(p->queue, i);
             v->id = i;
             v->special = VRT_VALUE_HOLE;
         }
@@ -434,7 +424,7 @@ vrt_producer_flush(struct vrt_producer *p)
 int
 vrt_producer_eof(struct vrt_producer *p)
 {
-    struct vrt_value  *v;
+    struct vrt_block  *v;
     rii_check(vrt_producer_claim_raw(p->queue, p));
     DEBUG("[%s] %s: Signaling EOF at value %d\n",
           p->queue->name, p->name, p->last_produced_id);
@@ -580,11 +570,11 @@ vrt_consumer_next_raw(struct vrt_queue *q, struct vrt_consumer *c)
 }
 
 int
-vrt_consumer_next(struct vrt_consumer *c, struct vrt_value **value)
+vrt_consumer_next(struct vrt_consumer *c, struct vrt_block *value)
 {
     do {
         unsigned int  producer_count;
-        struct vrt_value  *v;
+        struct vrt_block  *v;
         rii_check(vrt_consumer_next_raw(c->queue, c));
         v = vrt_queue_get(c->queue, c->current_id);
 
@@ -592,7 +582,10 @@ vrt_consumer_next(struct vrt_consumer *c, struct vrt_value **value)
             case VRT_VALUE_NONE:
                 DEBUG("[%s] %s: Processing value %d\n",
                       c->queue->name, c->name, c->current_id);
-                *value = v;
+		value = v;
+		memset(value,0,c->queue->block_size);
+		v->offset = 0;
+		v->size = c->queue->block_size;
                 return 0;
 
             case VRT_VALUE_EOF:

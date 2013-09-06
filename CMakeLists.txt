@@ -60,10 +60,11 @@ endif()
 
 find_package(Threads)
 
-pkg_check_modules(CORK REQUIRED libcork>=0.10.0)
+#pkg_check_modules(CORK REQUIRED libcork>=0.10.0)
 include_directories(${CORK_INCLUDE_DIRS})
 link_directories(${CORK_LIBRARY_DIRS})
-
+include_directories("usr/local/include")
+link_directories("/usr/local/lib")
 #-----------------------------------------------------------------------
 # Set some options
 

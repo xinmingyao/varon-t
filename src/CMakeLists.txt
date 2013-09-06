@@ -48,7 +48,8 @@ set_target_properties(libvrt PROPERTIES
     OUTPUT_NAME vrt
     VERSION 0.0.0
     SOVERSION 0)
-target_link_libraries(libvrt ${CORK_LIBRARIES})
+#target_link_libraries(libvrt ${CORK_LIBRARIES})
+target_link_libraries(libvrt "/usr/local/lib/libcork.so")
 
 install(TARGETS libvrt DESTINATION ${CMAKE_INSTALL_LIBDIR})
 

@@ -51,11 +51,12 @@ generate_integers(void *ud)
     struct generate_config  *c = ud;
     int32_t  i;
     for (i = 0; i < c->count; i++) {
-        struct vrt_value  *vvalue;
-        struct vrt_value_int  *value;
+        struct vrt_block  vvalue;
         rpi_check(vrt_producer_claim(c->p, &vvalue));
-        value = cork_container_of(vvalue, struct vrt_value_int, parent);
-        value->value = i;
+        //value = cork_container_of(vvalue, struct vrt_value_int, parent);
+        //value->value = i;
+	int * tmp = (int *)vvalue.ptr;
+	*tmp = i;
         rpi_check(vrt_producer_publish(c->p));
     }
 
@@ -80,14 +81,17 @@ multiply_integers(void *ud)
 {
     int  rc;
     struct multiply_config  *c = ud;
-    struct vrt_value  *vvalue;
+    struct vrt_block  vvalue;
     while ((rc = vrt_consumer_next(c->c, &vvalue)) != VRT_QUEUE_EOF) {
         if (rc == 0) {
-            struct vrt_value_int  *value =
-                cork_container_of(vvalue, struct vrt_value_int, parent);
+            //struct vrt_value_int  *value =
+            //    cork_container_of(vvalue, struct vrt_value_int, parent);
             /* We can update the value because downstream processors will be
              * dependent on us. */
-            value->value *= c->multiplicand;
+	   int * tmp = (int *)vvalue.ptr;
+	   int mul = *tmp *=c->multiplicand;
+            //value->value *= c->multiplicand;
+	   *tmp = mul;
         }
     }
     return NULL;
@@ -109,13 +113,12 @@ sum_integers(void *ud)
 {
     int  rc;
     struct sum_config  *c = ud;
-    struct vrt_value  *vvalue;
+    struct vrt_block  vvalue;
     int64_t  sum = 0;
     while ((rc = vrt_consumer_next(c->c, &vvalue)) != VRT_QUEUE_EOF) {
         if (rc == 0) {
-            struct vrt_value_int  *value =
-                cork_container_of(vvalue, struct vrt_value_int, parent);
-            sum += value->value;
+         int * tmp = (int *)vvalue.ptr;   
+	 sum += *tmp;
         }
     }
     if (rc == VRT_QUEUE_EOF) {
@@ -141,7 +144,7 @@ noop_integers(void *ud)
 {
     int  rc;
     struct noop_config  *c = ud;
-    struct vrt_value  *vvalue;
+    struct vrt_block  vvalue;
     int32_t  v = 0;
     while ((rc = vrt_consumer_next(c->c, &vvalue)) != VRT_QUEUE_EOF) {
         if (rc == 0) {

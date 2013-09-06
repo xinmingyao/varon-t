@@ -57,5 +57,13 @@ struct vrt_value {
     int  special;
 };
 
+/* block for ringbuffer*/
+struct vrt_block {
+    int size;// block len
+    int offset;//block can be used,if offset=0 full if ==size empty
+    vrt_value_id  id;
+    int  special;
+    char ptr[1];// ptr for buffer can be use by client,the real buffer will follow ptr,allocate in ringbuffer
+};
 
 #endif /* VRT_VALUE_H */

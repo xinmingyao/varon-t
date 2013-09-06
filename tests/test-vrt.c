@@ -28,7 +28,7 @@
 /*----------------------------------------------------------------------
  * Sum test
  */
-
+#define INT_SIZE 32
 #define DEFAULT_GENERATE_COUNT  10
 static int64_t  GENERATE_COUNT = DEFAULT_GENERATE_COUNT;
 
@@ -42,7 +42,7 @@ static int64_t  GENERATE_COUNT = DEFAULT_GENERATE_COUNT;
     vrt_clock  elapsed; \
     \
     fail_if_error(q = vrt_queue_new \
-                      ("queue_sum", vrt_value_type_int(), \
+                      ("queue_sum", INT_SIZE, \
                        queue_size)); \
     fail_if_error(p = vrt_producer_new \
                       ("generate", batch_size, q)); \

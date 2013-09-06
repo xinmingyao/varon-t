@@ -41,7 +41,7 @@ unicast_test(uint32_t queue_size, uint64_t batch_size,
     struct vrt_consumer  *c;
     vrt_clock  elapsed;
 
-    q = vrt_queue_new("queue_noop", vrt_value_type_int(), queue_size);
+    q = vrt_queue_new("queue_noop", 32, queue_size);
     p = vrt_producer_new("generate", batch_size, q);
     c = vrt_consumer_new("noop", q);
 
@@ -94,7 +94,7 @@ sequencer_test(uint32_t queue_size, uint64_t batch_size,
     struct vrt_consumer  *c;
     vrt_clock  elapsed;
 
-    q = vrt_queue_new("queue_noop", vrt_value_type_int(), queue_size);
+    q = vrt_queue_new("queue_noop", 32, queue_size);
     p1 = vrt_producer_new("generate_1", batch_size, q);
     p2 = vrt_producer_new("generate_2", batch_size, q);
     p3 = vrt_producer_new("generate_3", batch_size, q);
@@ -150,7 +150,7 @@ multicast_test(uint32_t queue_size, uint64_t batch_size,
     struct vrt_consumer  *c3;
     vrt_clock  elapsed;
 
-    q = vrt_queue_new("queue_noop", vrt_value_type_int(), queue_size);
+    q = vrt_queue_new("queue_noop", 32, queue_size);
     p = vrt_producer_new("generate", batch_size, q);
     c1 = vrt_consumer_new("noop_1", q);
     c2 = vrt_consumer_new("noop_2", q);

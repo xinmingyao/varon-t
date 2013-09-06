@@ -45,13 +45,14 @@ typedef cork_array(struct vrt_consumer *)  vrt_consumer_array;
 /** A FIFO queue modeled after the Java Disruptor project. */
 struct vrt_queue {
     /** The array of values managed by this queue. */
-    struct vrt_value  **values;
+    struct vrt_block  *values;
 
     /** One less than the size of this queue.  The actual value count
      * will always be a power of 2, so this value will always be an
      * AND-mask that lets you easily calculate (x % value_count). */
     unsigned int  value_mask;
-
+  /** block size for user */
+    unsigned int block_size;
     /** The type of values managed by this queue. */
     struct vrt_value_type  *value_type;
 
@@ -80,7 +81,7 @@ struct vrt_queue {
 
 /** Allocate a new queue. */
 struct vrt_queue *
-vrt_queue_new(const char *name, struct vrt_value_type *value_type,
+vrt_queue_new(const char *name, unsigned int block_len,
               unsigned int value_count);
 
 /** Free a queue. */
@@ -97,7 +98,7 @@ vrt_queue_free(struct vrt_queue *q);
 
 /** Retrieve the value with the given ID. */
 #define vrt_queue_get(q, id) \
-    ((q)->values[(id) & (q)->value_mask])
+    ((struct vrt_block *)((char *)(q)->values+((id) & (q)->value_mask)*(q)->block_size))
 
 /** Return the ID of the value that was most recently published into the
  * queue.  This function involves a memory barrier, and so it should be
@@ -212,7 +213,7 @@ vrt_producer_free(struct vrt_producer *p);
  * returns without an error, a value instance will be loaded into @ref
  * value.  The caller has full control over the contents of this value. */
 int
-vrt_producer_claim(struct vrt_producer *p, struct vrt_value **value);
+vrt_producer_claim(struct vrt_producer *p, struct vrt_block *value);
 
 /** Publish the most recently claimed value.  This function won't return
  * until the value is successfully published to the queue's consumers.
@@ -326,7 +327,7 @@ vrt_consumer_free(struct vrt_consumer *c);
  * the next call to @c vrt_consumer_next.  At that point, the queue
  * is free to overwrite the contents of the value at will. */
 int
-vrt_consumer_next(struct vrt_consumer *c, struct vrt_value **value);
+vrt_consumer_next(struct vrt_consumer *c, struct vrt_block *value);
 
 /** Return the ID of the value that was most recently processed by this
  * consumer.  This function involves a memory barrier, and so it should
